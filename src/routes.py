@@ -4,11 +4,16 @@ from robyn import jsonify, Request, SubRouter
 from schemas import UserCreate, UserResponse, UserUpdate
 import handlers
 from db import SessionLocal
+from middleware import BasicAuthHandler
+from robyn.authentication import BearerGetter
+
 
 user_router = SubRouter(__file__, prefix="/user")
+user_router.configure_authentication(BasicAuthHandler(token_getter=BearerGetter()))
+auth_router = SubRouter(__file__, prefix="/auth")
 
 
-@user_router.post("/register")
+@auth_router.post("/register")
 async def create_book(request: Request):
     try:
         data = request.json()
@@ -23,10 +28,34 @@ async def create_book(request: Request):
         return jsonify({"error": str(e)}), {}, 400
 
 
+@auth_router.post("/login")
+async def login(request: Request):
+    try:
+        data = request.json()
+
+        with SessionLocal() as db:
+            token = handlers.authenticate_user(db, **data)
+
+        if token is None:
+            return jsonify({"error": "Invalid token"}), {}, 401
+
+        return jsonify({"access_token": token}), {}, 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), {}, 400
+
+
+@user_router.get("/me", auth_required=True)
+async def get_current_user(request):
+    user = request.identity.claims["user"]
+    return user
+
+
 @user_router.get("/:user_id")
 async def get_user_id(request: Request):
     try:
         user_id = request.path_params.get("user_id")
+        if user_id is None:
+            return jsonify({"error": "User id is not provided"})
 
         with SessionLocal() as db:
             db_user = handlers.get_user(db, user_id)
@@ -47,6 +76,8 @@ async def get_user_id(request: Request):
 async def update_user(request: Request):
     try:
         user_id = request.path_params.get("user_id")
+        if user_id is None:
+            return jsonify({"error": "User id is not provided"})
         data = request.json()
         update_data = UserUpdate(**data)
 
@@ -69,6 +100,8 @@ async def update_user(request: Request):
 async def delete_user(request: Request):
     try:
         user_id = request.path_params.get("user_id")
+        if user_id is None:
+            return jsonify({"error": "User id is not provided"})
 
         with SessionLocal() as db:
             db_user = handlers.delete_user(db, user_id)

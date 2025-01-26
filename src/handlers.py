@@ -1,10 +1,11 @@
 # Logic CRUD
-
+from typing import Optional
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from models import User
 from sqlalchemy.exc import IntegrityError
 from schemas import UserCreate
-
+from jose import JWTError, jwt
 
 # SOLVE PASSLIB WARNING ########################################################
 from dataclasses import dataclass
@@ -23,11 +24,49 @@ setattr(bcrypt, "__about__", SolveBugBcryptWarning())
 pwd_context = CryptContext(schemes=["bcrypt"], bcrypt__rounds=12, deprecated="auto")
 
 
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def get_user(db: Session, user_id: int):
+ALGORITHM = "HS256"
+SECRET_KEY = "your_secret_key"
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encoded = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(hours=1)
+    to_encoded.update({"exp": expire})
+    encode_jwt = jwt.encode(to_encoded, SECRET_KEY, algorithm=ALGORITHM)
+    return encode_jwt
+
+
+def decode_access_token(token: str):
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+
+def authenticate_user(db: Session, username: str, password: str):
+    user = get_user_by_username(db, username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+
+    created_token = create_access_token(data={"sub": username})
+    return created_token
+
+
+def get_user_by_username(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
+
+
+def get_user(db: Session, user_id: str):
     return db.query(User).filter(User.id == user_id).first()
 
 
@@ -52,7 +91,7 @@ def create_user(db: Session, user_data: UserCreate):
         raise RuntimeError(f"Failed to create user: {str(e)}")
 
 
-def update_user(db: Session, user_id: int, update_data):
+def update_user(db: Session, user_id: str, update_data):
     try:
         db_user = get_user(db, user_id)
         if db_user is None:
@@ -84,7 +123,7 @@ def update_user(db: Session, user_id: int, update_data):
         raise RuntimeError(f"Failed to update user: {str(e)}")
 
 
-def delete_user(db: Session, user_id: int):
+def delete_user(db: Session, user_id: str):
     try:
         db_user = get_user(db, user_id)
         if db_user is None:
