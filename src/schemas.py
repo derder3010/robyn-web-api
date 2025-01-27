@@ -3,6 +3,20 @@
 from pydantic import BaseModel, ConfigDict
 import uuid
 from typing import Optional
+from robyn.types import JSONResponse, Body
+
+
+class UserRegister(Body):
+    username: str
+    password: str
+
+
+class RegisterResponse(JSONResponse):
+    success: bool
+    # id: uuid.UUID
+    # username: str
+    # is_active: bool
+    # is_superuser: bool
 
 
 class UserCreate(BaseModel):

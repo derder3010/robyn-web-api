@@ -1,34 +1,21 @@
 # Router api endpoint
 
 from robyn import jsonify, Request, SubRouter
+from robyn_schemas import RobynUserCreate, RobynUserUpdate
 from schemas import UserCreate, UserResponse, UserUpdate
 import handlers
 from db import SessionLocal
-from middleware import BasicAuthHandler
+from middleware import JWTAuthHandler
 from robyn.authentication import BearerGetter
 
 
 user_router = SubRouter(__file__, prefix="/user")
-user_router.configure_authentication(BasicAuthHandler(token_getter=BearerGetter()))
+user_router.configure_authentication(JWTAuthHandler(token_getter=BearerGetter()))
 auth_router = SubRouter(__file__, prefix="/auth")
+auth_router.configure_authentication(JWTAuthHandler(token_getter=BearerGetter()))
 
 
-@auth_router.post("/register")
-async def create_book(request: Request):
-    try:
-        data = request.json()
-        user_data = UserCreate(**data)
-
-        with SessionLocal() as db:
-            db_user = handlers.create_user(db, user_data)
-            response_data = UserResponse.model_validate(db_user)
-            return jsonify(response_data.model_dump()), {}, 201
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), {}, 400
-
-
-@auth_router.post("/login")
+@auth_router.post("/login", openapi_name="Log In User", openapi_tags=["Auth"])
 async def login(request: Request):
     try:
         data = request.json()
@@ -44,13 +31,56 @@ async def login(request: Request):
         return jsonify({"error": str(e)}), {}, 400
 
 
-@user_router.get("/me", auth_required=True)
+@auth_router.post(
+    "/logout", openapi_name="Log Out User", openapi_tags=["Auth"], auth_required=True
+)
+async def logout(request: Request):
+    try:
+        decoded_token = request.identity.claims
+        if decoded_token is None:
+            raise ValueError("Not Authorized")
+        with SessionLocal() as db:
+            result = handlers.logout_user(db, decoded_token)
+            return result
+    except Exception as e:
+        return jsonify({"error": str(e)}), {}, 400
+
+
+@user_router.post(
+    "/register",
+    openapi_name="Create New  User",
+    openapi_tags=["User Management"],
+)
+async def create_user(request: Request, body: RobynUserCreate):
+    try:
+        data = request.json()
+        user_data = UserCreate(**data)
+
+        with SessionLocal() as db:
+            db_user = handlers.create_user(db, user_data)
+            response_data = UserResponse.model_validate(db_user)
+            return jsonify(response_data.model_dump()), {}, 201
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), {}, 400
+
+
+@user_router.get(
+    "/me",
+    openapi_name="Get User Information",
+    openapi_tags=["User Management"],
+    auth_required=True,
+)
 async def get_current_user(request):
     user = request.identity.claims["user"]
     return user
 
 
-@user_router.get("/:user_id")
+@user_router.get(
+    "/:user_id",
+    openapi_name="Get User Information By ID",
+    openapi_tags=["User Management"],
+)
 async def get_user_id(request: Request):
     try:
         user_id = request.path_params.get("user_id")
@@ -72,8 +102,13 @@ async def get_user_id(request: Request):
         return jsonify({"error": str(e)}), {}, 500
 
 
-@user_router.put("/:user_id")
-async def update_user(request: Request):
+@user_router.put(
+    "/update/:user_id",
+    openapi_name="Update User Information",
+    openapi_tags=["User Management"],
+    auth_required=True,
+)
+async def update_user(request: Request, body: RobynUserUpdate):
     try:
         user_id = request.path_params.get("user_id")
         if user_id is None:
@@ -96,7 +131,12 @@ async def update_user(request: Request):
         return jsonify({"error": str(e)}), {}, 500
 
 
-@user_router.delete("/:user_id")
+@user_router.delete(
+    "/delete/:user_id",
+    openapi_name="Delete User",
+    openapi_tags=["User Management"],
+    auth_required=True,
+)
 async def delete_user(request: Request):
     try:
         user_id = request.path_params.get("user_id")

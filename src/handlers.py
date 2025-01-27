@@ -2,10 +2,11 @@
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from models import User
+from models import User, RevokedToken
 from sqlalchemy.exc import IntegrityError
 from schemas import UserCreate
 from jose import JWTError, jwt
+import uuid
 
 # SOLVE PASSLIB WARNING ########################################################
 from dataclasses import dataclass
@@ -42,7 +43,12 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(hours=1)
-    to_encoded.update({"exp": expire})
+    to_encoded.update(
+        {
+            "exp": expire,
+            "jti": str(uuid.uuid4()),
+        }
+    )
     encode_jwt = jwt.encode(to_encoded, SECRET_KEY, algorithm=ALGORITHM)
     return encode_jwt
 
@@ -89,6 +95,21 @@ def create_user(db: Session, user_data: UserCreate):
     except Exception as e:
         db.rollback()
         raise RuntimeError(f"Failed to create user: {str(e)}")
+
+
+def logout_user(db: Session, decoded_token):
+    try:
+        jti = decoded_token["jti"]
+        exp = datetime.fromtimestamp(int(decoded_token["exp"]), tz=timezone.utc)
+
+        if RevokedToken.is_revoked(db, jti):
+            raise ValueError("Token already revoked")
+
+        db.add(RevokedToken(jti=jti, expires_at=exp))
+        db.commit()
+        return {"message": "Successfully logged out"}
+    except JWTError:
+        raise JWTError
 
 
 def update_user(db: Session, user_id: str, update_data):

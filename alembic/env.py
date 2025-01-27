@@ -57,8 +57,19 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
+    def include_object(object, name, type_, reflected, compare_to):
+        # Exclude specific index changes
+        if type_ == "index" and name in {"ix_users_id", "ix_users_username"}:
+            return False
+        return True
+
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=False,
+            include_object=include_object,  # FIX CONFLICT IDX
+        )
 
         with context.begin_transaction():
             context.run_migrations()
