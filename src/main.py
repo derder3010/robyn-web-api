@@ -1,6 +1,4 @@
 from robyn import Robyn
-
-# from routes import add_users_routes
 from routes import user_router, auth_router
 
 app = Robyn(__file__)
@@ -13,7 +11,6 @@ app = Robyn(__file__)
 
 
 # Add routes to the app
-# add_users_routes(app)
 app.include_router(auth_router)
 app.include_router(user_router)
 
