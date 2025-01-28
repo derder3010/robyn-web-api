@@ -140,4 +140,4 @@ Project Structure
 
 ## License
 
-MIT License - see LICENSE.md for details
+MIT License - see [LICENSE](https://github.com/derder3010/robyn-web-api/blob/main/LICENSE) for details
