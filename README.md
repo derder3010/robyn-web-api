@@ -60,7 +60,7 @@ python -m robyn src/main.py --dev
 # Create user
 curl -X POST http://localhost:8080/user \
   -H "Content-Type: application/json" \
-  -d '{"username": "testuser", "email": "user@example.com", "password": "secret"}'
+  -d '{"username": "testuser", "password": "secret"}'
 
 # Get user
 curl http://localhost:8080/user/<user-uuid>

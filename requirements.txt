@@ -1,11 +1,11 @@
-robyn
-psycopg2-binary
-sqlalchemy
-sqlalchemy-cockroachdb
-python-dotenv
-passlib[bcrypt]==1.7.4  # Specific version to avoid bcrypt issues
-pydantic>=2.0
-python-multipart
-bcrypt>=4.0.0
-alembic
-python-jose[cryptography]
+robyn==0.65.0
+psycopg2-binary==2.9.10
+SQLAlchemy==2.0.37
+sqlalchemy-cockroachdb==2.0.2
+python-dotenv==1.0.1
+passlib[bcrypt]==1.7.4
+pydantic==2.10.5
+python-multipart==0.0.20
+bcrypt==4.2.1
+alembic==1.14.1
+python-jose[cryptography]==3.3.0
