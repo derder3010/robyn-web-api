@@ -6,8 +6,10 @@ from models import User, RevokedToken
 from sqlalchemy.exc import IntegrityError
 from schemas import UserCreate
 from jose import JWTError, jwt
-import uuid
+import uuid, os
+from dotenv import load_dotenv
 
+load_dotenv()
 # SOLVE PASSLIB WARNING ########################################################
 from dataclasses import dataclass
 import bcrypt
@@ -34,7 +36,18 @@ def get_password_hash(password: str) -> str:
 
 
 ALGORITHM = "HS256"
-SECRET_KEY = "your_secret_key"
+SECRET_KEY: str = str(os.getenv("SECRET_KEY"))
+ACCESS_TOKEN_EXPIRE_MINUTES: int
+
+raw_expire_minutes = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+
+if raw_expire_minutes is None:
+    raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be set")
+
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(raw_expire_minutes)
+except ValueError:
+    raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be an integer")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -42,7 +55,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(hours=1)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
     to_encoded.update(
         {
             "exp": expire,
